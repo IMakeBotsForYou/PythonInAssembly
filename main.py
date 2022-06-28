@@ -244,6 +244,9 @@ class DataBlock:
         self.add(register, -value)
 
     def add(self, register, value):
+        """
+        Add a key:value pair into the data seg
+        """
         assert value <= 0xFFFF
         if register[-1] == "H":
             assert value <= 0xFF
@@ -258,9 +261,15 @@ class DataBlock:
             self.data[register] += value
 
     def inc_ip(self):
+        """
+        Increment the IP value by one
+        """
         self.data["IP"] += 1
 
     def __str__(self):
+        """
+        Dump the data segment and fomat it
+        """
         return json.dumps(
             {k: hex_split(v) for k, v in self.data.items()},
             indent=2
@@ -268,11 +277,17 @@ class DataBlock:
 
 
 def hex_split(v):
+    """
+    Takes a value V(int, v<65536) and splits it into FF FF format.
+    """
     a = hex(v)[2:].zfill(4)
     return f"{a[:2]} {a[2:]}"
 
 
 def init():
+    """
+    Load the code into memory
+    """
     with open('input.txt', 'r') as f:
         inp_str = [x.replace("\n", "") for x in f.readlines()]
     return inp_str
