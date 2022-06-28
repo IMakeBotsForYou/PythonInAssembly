@@ -1,0 +1,23 @@
+# DEFINE a as the number you want to check for prime-ness
+DEF a 5
+EH a 2
+ADD IP 20
+MOV AX a
+DIV 2
+DEF max_check DX
+DEF divider 2
+MOV CX max_check
+label:
+    DIV divider
+    EQ EX 0
+    ADD IP 7
+    ADD divider 1
+    SUB CX 1
+    NE CX 0
+    JUMP label
+    ADD IP 2
+PRINT NON-PRIME
+ADD IP 1
+PRINT PRIME
+ADD IP 1
+PRINT INVALID
