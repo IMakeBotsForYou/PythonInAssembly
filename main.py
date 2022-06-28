@@ -7,12 +7,21 @@ FULL_VERBOSE = 2
 
 
 def fix_register_name(register):
+    """
+    :param register: Register name to fix
+    :return: Fixes names of registers like "A" to "AX"
+    """
     if register == "IP":
         return "IP"
     return F"{register[0]}X"
 
 
 def parse_action(action, verbose=False):
+    """
+    :param action: args of line
+    :param verbose: print things?
+    :return: None
+    """
     match action:
         case "MOV", dst, src:
             try:
@@ -163,6 +172,9 @@ def parse_action(action, verbose=False):
 
 
 class DataBlock:
+    """
+    Dataseg class
+    """
     def __init__(self):
         self.data = {  # data seg
             "AX": 0x0,
@@ -180,6 +192,11 @@ class DataBlock:
         self.labels[name] = IP
 
     def get(self, src):
+        """
+        :param src: Name to fetch
+        :return: Fetched value from dataseg,
+                 if not found will return the value as it is
+        """
         if src[-1] == "X":
             return self.data[fix_register_name(src)]
         elif src[-1] in ["H", "L"]:
@@ -196,6 +213,11 @@ class DataBlock:
                     return src
 
     def set(self, register, value):
+        """
+        :param register: Destination to set
+        :param value: Value to set
+        :return: None
+        """
         if register[-1] == "X":
             # full register
             assert value <= 0xFFFF
