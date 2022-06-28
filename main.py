@@ -147,7 +147,7 @@ def parse_action(action, verbose=False):
                     print(f"{src}={val}\t| {hex(val)}\t| {'{0:016b}'.format(val)}")
                 except TypeError:
                     # Not string
-                    raise Exception(f"IP {data.get('IP') + 1}: {src}")
+                    print(f"IP {data.get('IP') + 1}: {src}")
         case "JUMP", label:
             try:
                 data.set("IP", data.labels[label])
@@ -172,7 +172,7 @@ def parse_action(action, verbose=False):
 
 class DataBlock:
     """
-    Dataseg class
+    Data seg class
     """
     def __init__(self):
         self.data = {  # data seg
@@ -193,7 +193,7 @@ class DataBlock:
     def get(self, src):
         """
         :param src: Name to fetch
-        :return: Fetched value from dataseg,
+        :return: Fetched value from data seg,
                  if not found will return the value as it is
         """
         if src[-1] == "X":
@@ -282,7 +282,7 @@ def run(inp_str, verbose=0):
     """
     :param inp_str: Code to run
     :param verbose: Verbose mode (0/1/2).
-                    Verbose mode 0 only prints what the code requires to print.
+                    Verbose mode 0 only prints what the code requires printing.
                     Verbose mode 1 prints what line it's running
                     Verbose mode 2 prints all processes
     :return:
