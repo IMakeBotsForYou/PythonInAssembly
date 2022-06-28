@@ -1,5 +1,4 @@
 import json
-import time
 
 NO_VERBOSE = 0
 HALF_VERBOSE = 1
@@ -29,7 +28,7 @@ def parse_action(action, verbose=False):
                 if verbose:
                     print(f"Moved {data.get(src)} into {dst}")
             except Exception as e:
-                print(f"Failed moving {data.get(src)} into {dst}", e)
+                raise Exception(f"Failed moving {data.get(src)} into {dst}", e)
 
         case "ADD", dst, src:
             try:
@@ -37,7 +36,7 @@ def parse_action(action, verbose=False):
                 if verbose:
                     print(f"Added {data.get(src)} into {dst}")
             except Exception as e:
-                print(f"Failed adding {data.get(src)} into {dst}", e)
+                raise Exception(f"Failed adding {data.get(src)} into {dst}", e)
 
         case "AND", dst, src:
             try:
@@ -45,7 +44,7 @@ def parse_action(action, verbose=False):
                 if verbose:
                     print(f"Bitwise-AND {data.get(src)} with {dst}")
             except Exception as e:
-                print(f"Failed Bitwise-AND {data.get(src)} with {dst}", e)
+                raise Exception(f"Failed Bitwise-AND {data.get(src)} with {dst}", e)
 
         case "OR", dst, src:
             try:
@@ -53,7 +52,7 @@ def parse_action(action, verbose=False):
                 if verbose:
                     print(f"Bitwise-OR {data.get(src)} with {dst}")
             except Exception as e:
-                print(f"Failed Bitwise-OR {data.get(src)} with {dst}", e)
+                raise Exception(f"Failed Bitwise-OR {data.get(src)} with {dst}", e)
 
         case "XOR", dst, src:
             try:
@@ -61,7 +60,7 @@ def parse_action(action, verbose=False):
                 if verbose:
                     print(f"Bitwise-XOR {data.get(src)} with {dst}")
             except Exception as e:
-                print(f"Failed Bitwise-XOR {data.get(src)} with {dst}", e)
+                raise Exception(f"Failed Bitwise-XOR {data.get(src)} with {dst}", e)
         case "DIV", value:
             try:
                 value = data.get(value)
@@ -71,7 +70,7 @@ def parse_action(action, verbose=False):
                     print(f"DIV", data.get("AX"), value, data.get("DX"), data.get("EX"))
 
             except Exception as e:
-                print("DIV Failed", e)
+                raise Exception("DIV Failed", e)
 
         case "NOT", dst:
             try:
@@ -79,7 +78,7 @@ def parse_action(action, verbose=False):
                 if verbose:
                     print(f"Bitwise-NOT {data.get(dst)}")
             except Exception as e:
-                print(f"Failed Bitwise-NOT {data.get(dst)}", e)
+                raise Exception(f"Failed Bitwise-NOT {data.get(dst)}", e)
 
         case "LSH", dst, amount:
             try:
@@ -87,7 +86,7 @@ def parse_action(action, verbose=False):
                 if verbose:
                     print(f"LSH {data.get(dst)} by {amount}")
             except Exception as e:
-                print(f"Failed LSH {data.get(dst)} by {amount}", e)
+                raise Exception(f"Failed LSH {data.get(dst)} by {amount}", e)
 
         case "RSH", dst, amount:
             try:
@@ -95,7 +94,7 @@ def parse_action(action, verbose=False):
                 if verbose:
                     print(f"RSH {data.get(dst)} by {amount}")
             except Exception as e:
-                print(f"Failed RSH {data.get(dst)} by {amount}", e)
+                raise Exception(f"Failed RSH {data.get(dst)} by {amount}", e)
 
         case "EL" | "EH" | "EQ" | "NE", src, amount:
             # EL Equal Lower
@@ -148,14 +147,14 @@ def parse_action(action, verbose=False):
                     print(f"{src}={val}\t| {hex(val)}\t| {'{0:016b}'.format(val)}")
                 except TypeError:
                     # Not string
-                    print(f"IP {data.get('IP') + 1}: {src}")
+                    raise Exception(f"IP {data.get('IP') + 1}: {src}")
         case "JUMP", label:
             try:
                 data.set("IP", data.labels[label])
                 if verbose:
                     print(f"Jumped to {label}")
             except KeyError:
-                print(f"Failed to jump to {label}")
+                raise Exception(f"Failed to jump to {label}")
         case "DEF", name, value:
             try:
                 value = int(value)

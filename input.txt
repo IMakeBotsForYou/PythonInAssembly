@@ -1,15 +1,16 @@
 # DEFINE a as the number you want to check for prime-ness
-# FIND FACTORS
-DEF a 21
-EL a 1
+# and find the factors of.
+DEF input 0xeeee
+PRINT input
+EL input 1
 ADD IP 31
-MOV AX a
+MOV AX input
 DIV 2
 DEF max_check DX
 DEF divider 2
 MOV CX max_check
 label:
-    EL a divider
+    EL input divider
     ADD IP 21
     DIV divider
     EQ EX 0
