@@ -1,14 +1,38 @@
-# Example code.
-# Move into AL/BL (AX/BX) the seed numbers.
-# Move into CX the amount of values in the series you want to print
-MOV AL 0
-MOV BL 1
-MOV CX 10
+# DEFINE a as the number you want to check for prime-ness
+# and find the factors of.
+DB input 60
+PRINT [input]
+EL [input] 1
+ADD IP 31
+MOV AX [input]
+DIV 2
+DB max_check [DX]
+DB divider 2
+MOV CX [max_check]
 label:
-    MOV DX 0
-    ADD DX [AX]
-    MOV AX [BX]
-    ADD DX [BX]
-    MOV BX [DX]
-    PRINT [DX]
+    EL [input] [divider]
+    ADD IP 21
+    DIV [divider]
+    EQ [EX] 0
+    ADD IP 3
+    ADD divider 1
     LOOP label
+    ADD IP 15
+PRINT [divider]
+MOV AX [divider]
+MOV CX [max_check]
+SUB CX [AX]
+check_factors:
+    MOV AX [DX]
+    DIV [divider]
+    EQ [EX] 0
+    PRINT [divider]
+    EQ [EX] 0
+    JUMP check_factors
+    ADD divider 1
+    MOV DX [AX]
+    LOOP check_factors
+ADD IP 1
+PRINT PRIME
+ADD IP 1
+PRINT INVALID

@@ -66,10 +66,12 @@ def parse_action(action, verbose=False):
         case "DIV", value:
             try:
                 value = data.get(value)
-                data.set("DX", data.get("AX") // value)
-                data.set("EX", data.get("AX") % value)
+                data.set("DX", data.get("AX", value=True) // value)
+                data.set("EX", data.get("AX", value=True) % value)
                 if verbose:
-                    print(f"DIV", data.get("AX"), value, data.get("DX"), data.get("EX"))
+                    print(f"DIV", F'AX={data.get("AX", value=True)}, {value=}, '
+                                  F'//={data.get("DX", value=True)}, '
+                                  F'%={data.get("EX", value=True)}')
 
             except Exception as e:
                 raise Exception("DIV Failed", e)
@@ -153,11 +155,11 @@ def parse_action(action, verbose=False):
                     print(f"Jumped to {label}")
             except KeyError:
                 raise Exception(f"Failed to jump to {label}")
-        case "DB" | "DW", name, value:
-            try:
-                value = int(value)
-            except ValueError:
-                value = data.get(value)
+        case "DB" | "DW", name, *args:
+            if len(args) == 1:
+                value = int(data.get(args[0]))
+            else:
+                value = " ".join(args)
 
             if verbose:
                 print(f"Setting {name} to {value}")
@@ -233,13 +235,12 @@ class DataBlock:
 
             new_bytes = value.to_bytes(length, "big")
 
-        except AttributeError:
+        except (AttributeError, TypeError):
             pass
-
         if not new_bytes:
             try:
                 # Str
-                new_bytes = value.encode()
+                new_bytes = (value + "\x00").encode()
             except AttributeError:
                 pass
 
@@ -280,10 +281,11 @@ class DataBlock:
                 return start
 
             end = start + length
-            try:
-                return int.from_bytes(self.data[start:end], byteorder='big')
-            except AttributeError:
+
+            if self.data[end-1] == "\x00":
                 return self.data[start:end].decode()
+            else:
+                return int.from_bytes(self.data[start:end], byteorder='big')
 
         if src in self.pointers:
             # Return value
@@ -291,10 +293,10 @@ class DataBlock:
             if not value:
                 return start
             end = start + length
-            try:
-                return int.from_bytes(self.data[start:end], byteorder='big')
-            except AttributeError:
+            if self.data[end-1] == "\x00":
                 return self.data[start:end].decode()
+            else:
+                return int.from_bytes(self.data[start:end], byteorder='big')
 
         try:
             return int(src)
