@@ -1,5 +1,7 @@
 import json
-
+import os
+import time
+import math
 NO_VERBOSE = 0
 HALF_VERBOSE = 1
 FULL_VERBOSE = 2
@@ -12,7 +14,7 @@ def fix_register_name(register):
     """
     if register == "IP":
         return "IP"
-    return F"{register[0]}X"
+    return register[0]
 
 
 def parse_action(action, verbose=False):
@@ -24,6 +26,15 @@ def parse_action(action, verbose=False):
     match action:
         case "MOV", dst, src:
             try:
+                # If we are moving an INT value into a register / var,
+                # move the value.
+                # Otherwise, move the pointer to the said source.
+
+
+                # try:
+                #     value = int.from_bytes(data.get(src), byteorder='big')
+                # except:
+
                 data.set(dst, data.get(src))
                 if verbose:
                     print(f"Moved {data.get(src)} into {dst}")
@@ -32,9 +43,10 @@ def parse_action(action, verbose=False):
 
         case "ADD", dst, src:
             try:
-                data.add(dst, data.get(src))
+                value = data.get(src)
+                data.add(dst, value)
                 if verbose:
-                    print(f"Added {data.get(src)} into {dst}")
+                    print(f"Added {value} into {dst}")
             except Exception as e:
                 raise Exception(f"Failed adding {data.get(src)} into {dst}", e)
 
@@ -142,12 +154,8 @@ def parse_action(action, verbose=False):
 
         case "PRINT", *srcs:
             for src in srcs:
-                val = data.get(src)
-                try:
-                    print(f"{src}={val}\t| {hex(val)}\t| {'{0:016b}'.format(val)}")
-                except TypeError:
-                    # Not string
-                    print(f"IP {data.get('IP') + 1}: {src}")
+                print(data.get(src))
+
         case "JUMP", label:
             try:
                 data.set("IP", data.labels[label])
@@ -155,7 +163,7 @@ def parse_action(action, verbose=False):
                     print(f"Jumped to {label}")
             except KeyError:
                 raise Exception(f"Failed to jump to {label}")
-        case "DEF", name, value:
+        case "DB" | "DW", name, value:
             try:
                 value = int(value)
             except ValueError:
@@ -164,6 +172,7 @@ def parse_action(action, verbose=False):
             if verbose:
                 print(f"Setting {name} to {value}")
             data.set(name, value)
+
         case "LOOP", label:
             if data.get("CX") > 0:
                 data.sub("CX", 1)
@@ -174,106 +183,154 @@ class DataBlock:
     """
     Data seg class
     """
-    def __init__(self):
-        self.data = {  # data seg
-            "AX": 0x0,
-            "BX": 0x0,
-            "CX": 0x0,
-            "DX": 0x0,
-            "EX": 0x0,
-            "IP": 0x0
+    def __init__(self, size=64):
+        # This stores the location of data (pointers) in the virtual memory
+        self.data = bytearray(size)
+        self.pointers = {  # pointer, length of data
+            "AX": [0, 2],
+            "AL": [1, 1],
+            "AH": [0, 1],
+
+            "BX": [2, 2],
+            "BL": [3, 1],
+            "BH": [2, 1],
+
+            "CX": [4, 2],
+            "CL": [5, 1],
+            "CH": [4, 1],
+
+            "DX": [6, 2],
+            "DL": [7, 1],
+            "DH": [6, 1],
+
+            "EX": [8, 2],
+            "EL": [9, 1],
+            "EH": [8, 1],
+
+            "IP": [10, 2]
         }
-        self.registers = {"AX", "BX", "CX", "DX", "EX", "IP"}  # registers in the code
+        self.bump_pointer = 12
+        self.registers = list(self.pointers.copy().keys())  # registers in the code
         self.labels = {}  # labels to jump to in the code
         self.flags = {}  # idk i'll make flags later
+
+    def set(self, name, value):
+        # Translate value into bytes
+        new_bytes = None
+        register = False
+        little = False  # 2 byte | 1 bytes
+        # Classify registers
+        if name in self.registers:
+            register = True
+            if name[-1] != "X" and name != "IP":
+                little = True
+
+        try:
+            # Int
+            # Get appropriate amount of bytes
+            if value != 1 and value != 0:
+                length = math.ceil(math.log(value, 256))
+                if value % 256 == 0:
+                    length += 1
+            else:
+                length = 1
+
+            if register:
+                assert length <= 2
+            if little:
+                assert length == 1
+
+            new_bytes = value.to_bytes(length, "big")
+
+        except AttributeError:
+            pass
+
+        if not new_bytes:
+            try:
+                # Str
+                new_bytes = value.encode()
+            except AttributeError:
+                pass
+
+        if not new_bytes:
+            new_bytes = value
+
+        if name in self.pointers:
+            start = self.pointers[name][0]
+        else:
+            self.pointers[name] = [self.bump_pointer, len(new_bytes)]
+            start = self.pointers[name][0]
+            self.bump_pointer += len(new_bytes)
+
+        assert self.bump_pointer + self.pointers[name][1] < len(self.data)
+
+        if not register or little:
+            for i, v in enumerate(new_bytes):
+                self.data[start+i] = v
+        elif not little:
+            # fill to 2 bytes
+            new_bytes = b'\x00' * (2-len(new_bytes)) + new_bytes
+            for i, v in enumerate(new_bytes):
+                self.data[start+i] = v
+
+    def get(self, src, value=True):
+        """
+        Get a value from a pointer
+        value   Value | Pointer
+        """
+
+        if fix_register_name(src) in self.registers:
+            start, length = self.pointers[fix_register_name(src)]
+            if not value:
+                return start
+
+            end = start + length
+            try:
+                return int.from_bytes(self.data[start:end], byteorder='big')
+            except AttributeError:
+                return self.data[start:end].decode()
+
+        if src in self.pointers:
+            # Return value
+            start, length = self.pointers[src]
+            if not value:
+                return start
+            end = start+length
+            try:
+                return int.from_bytes(self.data[start:end], byteorder='big')
+            except AttributeError:
+                return self.data[start:end].decode()
+
+        try:
+            return int(src)
+        except ValueError:
+            return src
 
     def add_label(self, name, IP):
         self.labels[name] = IP
 
-    def get(self, src):
-        """
-        :param src: Name to fetch
-        :return: Fetched value from data seg,
-                 if not found will return the value as it is
-        """
-        if src[-1] == "X":
-            return self.data[fix_register_name(src)]
-        elif src[-1] in ["H", "L"]:
-            shift = 8 if src[-1] == "H" else 0
-            return self.data[fix_register_name(src)] << shift
-        else:
-            if src in self.data:
-                return self.data[src]
-            else:
-                try:
-                    a = int(src, 0)
-                    return a
-                except ValueError:
-                    return src
-
-    def set(self, register, value):
-        """
-        :param register: Destination to set
-        :param value: Value to set
-        :return: None
-        """
-        if register[-1] == "X":
-            # full register
-            assert value <= 0xFFFF
-            self.data[fix_register_name(register)] = value
-
-        elif register[-1] == "L":
-            # low
-            assert value <= 0xFF
-            # Remove low
-            self.data[fix_register_name(register)] &= 0xF0
-            # Set low
-            self.data[fix_register_name(register)] += value
-
-        elif register[-1] == "H":
-            assert value <= 0xFF
-            # Remove high
-            self.data[fix_register_name(register)] &= 0x0F
-            # Set high
-            self.data[fix_register_name(register)] += (value << 4)
-        else:
-            # Variable
-            self.data[register] = value
-
     def sub(self, register, value):
         self.add(register, -value)
 
-    def add(self, register, value):
-        """
-        Add a key:value pair into the data seg
-        """
-        assert value <= 0xFFFF
-        if register[-1] == "H":
-            assert value <= 0xFF
-            value <<= 4
-
-        fixed_name = fix_register_name(register)
-        if fixed_name in self.registers:
-            assert self.data[fixed_name] + value <= 0xFFFF
-            self.data[fixed_name] += value
-        else:
-            assert self.data[register] + value <= 0xFFFF
-            self.data[register] += value
+    def add(self, register, value: int):
+        # Takes in int value and adds to memory
+        value += data.get(register)
+        self.set(register, value)
 
     def inc_ip(self):
         """
         Increment the IP value by one
         """
-        self.data["IP"] += 1
+        self.add("IP", 1)
 
     def __str__(self):
         """
-        Dump the data segment and fomat it
+        Dump the data segment and format it
         """
-        return json.dumps(
-            {k: hex_split(v) for k, v in self.data.items()},
-            indent=2
-        )
+        get_group = lambda p: {k: data.get(k) for k in [f'{p}X', f'{p}H', f'{p}L']}
+        registers = ['A', 'B', 'C', 'D', 'E']
+        print("\n".join([get_group(r) for r in registers]))
+        print({"IP": data.get("IP")})
 
 
 def hex_split(v):
@@ -302,19 +359,23 @@ def run(inp_str, verbose=0):
                     Verbose mode 2 prints all processes
     :return:
     """
-    while data.data["IP"] < len(inp_str):
-        line = inp_str[data.data["IP"]].split("#")[0]
+    current_ip = data.get("IP")
+    print(F"#### {len(inp_str)} lines.")
+    while current_ip < len(inp_str):
+        line = inp_str[current_ip].split("#")[0]
         if verbose:
-            print(f'{data.data["IP"] + 1}', end=":\t ")
+            print(f'{current_ip + 1}', end=":\t ")
             print(line)
 
         if line.endswith(":"):
             # Make a label
-            data.labels[line[:-1]] = data.data["IP"]
+            data.labels[line[:-1]] = current_ip
         else:
             parse_action(line.split(), verbose == 2)
 
+        time.sleep(0.2)
         data.inc_ip()
+        current_ip = data.get("IP")
 
 
 if __name__ == "__main__":

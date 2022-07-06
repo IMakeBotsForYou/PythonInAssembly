@@ -1,38 +1,11 @@
-# DEFINE a as the number you want to check for prime-ness
-# and find the factors of.
-DEF input 0xeeee
-PRINT input
-EL input 1
-ADD IP 31
-MOV AX input
-DIV 2
-DEF max_check DX
-DEF divider 2
-MOV CX max_check
+MOV AL 0
+MOV BL 1
+MOV CX 5
 label:
-    EL input divider
-    ADD IP 21
-    DIV divider
-    EQ EX 0
-    ADD IP 3
-    ADD divider 1
+    MOV DX 0
+    ADD DX AX
+    MOV AX BX
+    ADD DX BX
+    MOV BX DX
+    PRINT DX
     LOOP label
-    ADD IP 15
-PRINT divider
-MOV AX divider
-MOV CX max_check
-SUB CX AX
-check_factors:
-    MOV AX DX
-    DIV divider
-    EQ EX 0
-    PRINT divider
-    EQ EX 0
-    JUMP check_factors
-    ADD divider 1
-    MOV DX AX
-    LOOP check_factors
-ADD IP 1
-PRINT PRIME
-ADD IP 1
-PRINT INVALID
