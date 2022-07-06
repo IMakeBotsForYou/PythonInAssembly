@@ -1,11 +1,14 @@
+# Example code.
+# Move into AL/BL (AX/BX) the seed numbers.
+# Move into CX the amount of values in the series you want to print
 MOV AL 0
 MOV BL 1
-MOV CX 5
+MOV CX 10
 label:
     MOV DX 0
-    ADD DX AX
-    MOV AX BX
-    ADD DX BX
-    MOV BX DX
-    PRINT DX
+    ADD DX [AX]
+    MOV AX [BX]
+    ADD DX [BX]
+    MOV BX [DX]
+    PRINT [DX]
     LOOP label

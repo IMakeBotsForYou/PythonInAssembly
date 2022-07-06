@@ -2,19 +2,14 @@ import json
 import os
 import time
 import math
+
 NO_VERBOSE = 0
 HALF_VERBOSE = 1
 FULL_VERBOSE = 2
 
 
-def fix_register_name(register):
-    """
-    :param register: Register name to fix
-    :return: Fixes names of registers like "A" to "AX"
-    """
-    if register == "IP":
-        return "IP"
-    return register[0]
+def by_value(src):
+    return src[0] == "[" and src[-1] == "]"
 
 
 def parse_action(action, verbose=False):
@@ -29,11 +24,6 @@ def parse_action(action, verbose=False):
                 # If we are moving an INT value into a register / var,
                 # move the value.
                 # Otherwise, move the pointer to the said source.
-
-
-                # try:
-                #     value = int.from_bytes(data.get(src), byteorder='big')
-                # except:
 
                 data.set(dst, data.get(src))
                 if verbose:
@@ -174,7 +164,7 @@ def parse_action(action, verbose=False):
             data.set(name, value)
 
         case "LOOP", label:
-            if data.get("CX") > 0:
+            if data.get("CX", value=True) > 0:
                 data.sub("CX", 1)
                 data.set("IP", data.labels[label])
 
@@ -183,6 +173,7 @@ class DataBlock:
     """
     Data seg class
     """
+
     def __init__(self, size=64):
         # This stores the location of data (pointers) in the virtual memory
         self.data = bytearray(size)
@@ -228,7 +219,7 @@ class DataBlock:
         try:
             # Int
             # Get appropriate amount of bytes
-            if value != 1 and value != 0:
+            if value > 1:
                 length = math.ceil(math.log(value, 256))
                 if value % 256 == 0:
                     length += 1
@@ -266,21 +257,25 @@ class DataBlock:
 
         if not register or little:
             for i, v in enumerate(new_bytes):
-                self.data[start+i] = v
+                self.data[start + i] = v
         elif not little:
             # fill to 2 bytes
-            new_bytes = b'\x00' * (2-len(new_bytes)) + new_bytes
+            new_bytes = b'\x00' * (2 - len(new_bytes)) + new_bytes
             for i, v in enumerate(new_bytes):
-                self.data[start+i] = v
+                self.data[start + i] = v
 
-    def get(self, src, value=True):
+    def get(self, src, value=None):
         """
         Get a value from a pointer
         value   Value | Pointer
         """
+        if value is None:
+            value = by_value(src)
+            if value:
+                src = src[1:-1]
 
-        if fix_register_name(src) in self.registers:
-            start, length = self.pointers[fix_register_name(src)]
+        if src in self.registers:
+            start, length = self.pointers[src]
             if not value:
                 return start
 
@@ -295,7 +290,7 @@ class DataBlock:
             start, length = self.pointers[src]
             if not value:
                 return start
-            end = start+length
+            end = start + length
             try:
                 return int.from_bytes(self.data[start:end], byteorder='big')
             except AttributeError:
@@ -314,7 +309,7 @@ class DataBlock:
 
     def add(self, register, value: int):
         # Takes in int value and adds to memory
-        value += data.get(register)
+        value += data.get(register, value=True)
         self.set(register, value)
 
     def inc_ip(self):
@@ -327,18 +322,14 @@ class DataBlock:
         """
         Dump the data segment and format it
         """
-        get_group = lambda p: {k: data.get(k) for k in [f'{p}X', f'{p}H', f'{p}L']}
+        get_group = lambda p: "".join([f'{k} ' + f'{data.get(k, value=True)}'.ljust(5)
+                                       + f'{hex(data.get(k, value=True))}'.ljust(7)
+                                       for k in [f'{p}X', f'{p}H', f'{p}L']])
+
         registers = ['A', 'B', 'C', 'D', 'E']
-        print("\n".join([get_group(r) for r in registers]))
-        print({"IP": data.get("IP")})
-
-
-def hex_split(v):
-    """
-    Takes a value V(int, v<65536) and splits it into FF FF format.
-    """
-    a = hex(v)[2:].zfill(4)
-    return f"{a[:2]} {a[2:]}"
+        ret = "\n".join([json.dumps(get_group(r)) for r in registers])
+        ret += f"\nIP: {data.get('IP', value=True)}"
+        return ret
 
 
 def init():
@@ -359,8 +350,8 @@ def run(inp_str, verbose=0):
                     Verbose mode 2 prints all processes
     :return:
     """
-    current_ip = data.get("IP")
-    print(F"#### {len(inp_str)} lines.")
+    current_ip = data.get("IP", value=True)
+    print(F"#### {len(inp_str)} lines. ####")
     while current_ip < len(inp_str):
         line = inp_str[current_ip].split("#")[0]
         if verbose:
@@ -373,9 +364,8 @@ def run(inp_str, verbose=0):
         else:
             parse_action(line.split(), verbose == 2)
 
-        time.sleep(0.2)
         data.inc_ip()
-        current_ip = data.get("IP")
+        current_ip = data.get("IP", value=True)
 
 
 if __name__ == "__main__":
