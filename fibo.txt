@@ -6,9 +6,9 @@ MOV BL 1
 MOV CX 5
 label:
     MOV DX 0
-    ADD DX AX
-    MOV AX BX
-    ADD DX BX
-    MOV BX DX
-    PRINT DX
+    ADD DX [AX]
+    MOV AX [BX]
+    ADD DX [BX]
+    MOV BX [DX]
+    PRINT [DX]
     LOOP label
