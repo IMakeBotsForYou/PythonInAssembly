@@ -1,4 +1,5 @@
 ### PythonInAssembly
+
 Assembly interpreter in assembly
 
 Instruction set:
@@ -14,7 +15,11 @@ Instruction set:
 * LSH and RSH Left/Right shift a value N times
 * EL EH EQ NE Comparisons    Compare the first value to the second, if false skip the next line.
 
+
 In main.py, there are 3 verbose levels.
+
 NO_VERBOSE = Only prints what the program itself prints
+
 HALF_VERBOSE = Prints what line it's on, and the IP
+
 FULL_VERBOSE = Prints what the program prints, what line it's running, and a human-readable explanation of what the line does.
