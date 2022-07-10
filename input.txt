@@ -1,2 +1,2 @@
-DB a Stringy Strings
+DB a A super epic string
 PRINT a [a]

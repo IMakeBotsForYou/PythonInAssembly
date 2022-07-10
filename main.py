@@ -282,12 +282,13 @@ class DataBlock:
         value   Value | Pointer
         """
         assert not to_int & to_string or to_int ^ to_string
-        # Both or non
+        # One or non
 
         if value is None:
             value = by_value(src)
             if value:
                 src = src[1:-1]
+
         if src in self.pointers:
             # Return value
             start, length = self.pointers[src]
