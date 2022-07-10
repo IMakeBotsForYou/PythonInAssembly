@@ -15,7 +15,7 @@ label:
     ADD divider 1
     LOOP label
     ADD IP 2
-PRINT NON-PRIME
+PRINT NON PRIME
 ADD IP 1
 PRINT PRIME
 ADD IP 1

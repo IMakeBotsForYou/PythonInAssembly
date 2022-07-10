@@ -24,7 +24,6 @@ def parse_action(action, verbose=False):
                 # If we are moving an INT value into a register / var,
                 # move the value.
                 # Otherwise, move the pointer to the said source.
-
                 data.set(dst, data.get(src))
                 if verbose:
                     print(f"Moved {data.get(src)} into {dst}")
@@ -33,7 +32,7 @@ def parse_action(action, verbose=False):
 
         case "ADD", dst, src:
             try:
-                value = data.get(src)
+                value = data.get(src, to_int=True)
                 data.add(dst, value)
                 if verbose:
                     print(f"Added {value} into {dst}")
@@ -42,7 +41,7 @@ def parse_action(action, verbose=False):
 
         case "AND", dst, src:
             try:
-                data.set(dst, data.get(dst) & data.get(src))
+                data.set(dst, data.get(dst, to_int=True) & data.get(src, to_int=True))
                 if verbose:
                     print(f"Bitwise-AND {data.get(src)} with {dst}")
             except Exception as e:
@@ -50,7 +49,7 @@ def parse_action(action, verbose=False):
 
         case "OR", dst, src:
             try:
-                data.set(dst, data.get(dst) | data.get(src))
+                data.set(dst, data.get(dst, to_int=True) | data.get(src, to_int=True))
                 if verbose:
                     print(f"Bitwise-OR {data.get(src)} with {dst}")
             except Exception as e:
@@ -58,27 +57,27 @@ def parse_action(action, verbose=False):
 
         case "XOR", dst, src:
             try:
-                data.set(dst, data.get(dst) ^ data.get(src))
+                data.set(dst, data.get(dst, to_int=True) ^ data.get(src, to_int=True))
                 if verbose:
                     print(f"Bitwise-XOR {data.get(src)} with {dst}")
             except Exception as e:
                 raise Exception(f"Failed Bitwise-XOR {data.get(src)} with {dst}", e)
         case "DIV", value:
             try:
-                value = data.get(value)
-                data.set("DX", data.get("AX", value=True) // value)
-                data.set("EX", data.get("AX", value=True) % value)
+                value = data.get(value, to_int=True)
+                data.set("DX", data.get("AX", value=True, to_int=True) // value)
+                data.set("EX", data.get("AX", value=True, to_int=True) % value)
                 if verbose:
-                    print(f"DIV", F'AX={data.get("AX", value=True)}, {value=}, '
-                                  F'//={data.get("DX", value=True)}, '
-                                  F'%={data.get("EX", value=True)}')
+                    print(f"DIV", F'AX={data.get("AX", value=True, to_int=True)}, {value=}, '
+                                  F'//={data.get("DX", value=True, to_int=True)}, '
+                                  F'%={data.get("EX", value=True, to_int=True)}')
 
             except Exception as e:
                 raise Exception("DIV Failed", e)
 
         case "NOT", dst:
             try:
-                data.set(dst, ~data.get(dst))
+                data.set(dst, ~data.get(dst, to_int=True))
                 if verbose:
                     print(f"Bitwise-NOT {data.get(dst)}")
             except Exception as e:
@@ -86,15 +85,15 @@ def parse_action(action, verbose=False):
 
         case "LSH", dst, amount:
             try:
-                data.set(dst, data.get(dst) << amount)
+                data.set(dst, data.get(dst, to_int=True) << amount)
                 if verbose:
-                    print(f"LSH {data.get(dst)} by {amount}")
+                    print(f"LSH {data.get(dst, to_int=True)} by {amount}")
             except Exception as e:
                 raise Exception(f"Failed LSH {data.get(dst)} by {amount}", e)
 
         case "RSH", dst, amount:
             try:
-                data.set(dst, data.get(dst) >> amount)
+                data.set(dst, data.get(dst, to_int=True) >> amount)
                 if verbose:
                     print(f"RSH {data.get(dst)} by {amount}")
             except Exception as e:
@@ -105,8 +104,8 @@ def parse_action(action, verbose=False):
             # EH Equal Higher
             # EQ Equal
             # NE Not Equal
-            value = data.get(src)
-            amount = data.get(amount)  # Parse int
+            value = data.get(src, to_int=True)
+            amount = data.get(amount, to_int=True)  # Parse int
             action = action[0]
             if verbose:
                 print(f"{action} on {src}({data.get(src)}) and {amount}", end="\t")
@@ -146,7 +145,12 @@ def parse_action(action, verbose=False):
 
         case "PRINT", *srcs:
             for src in srcs:
-                print(data.get(src))
+                if data.get(src, to_int=True) == data.get(src):
+                    print(f"<{data.get('IP', value=True, to_int=True)}>: {data.get(src)}")
+                else:
+                    print(f"<{data.get('IP', value=True, to_int=True)}>: "
+                          f"{data.get(src, to_string=True)}"
+                          f"({data.get(src, to_int=True)}) | {data.get(src)}")
 
         case "JUMP", label:
             try:
@@ -157,7 +161,7 @@ def parse_action(action, verbose=False):
                 raise Exception(f"Failed to jump to {label}")
         case "DB" | "DW", name, *args:
             if len(args) == 1:
-                value = int(data.get(args[0]))
+                value = data.get(args[0])
             else:
                 value = " ".join(args)
 
@@ -166,7 +170,7 @@ def parse_action(action, verbose=False):
             data.set(name, value)
 
         case "LOOP", label:
-            if data.get("CX", value=True) > 0:
+            if data.get("CX", value=True, to_int=True) > 0:
                 data.sub("CX", 1)
                 data.set("IP", data.labels[label])
 
@@ -237,15 +241,19 @@ class DataBlock:
 
         except (AttributeError, TypeError):
             pass
+
         if not new_bytes:
             try:
                 # Str
-                new_bytes = (value + "\x00").encode()
+                new_bytes = value.encode()
             except AttributeError:
                 pass
 
         if not new_bytes:
             new_bytes = value
+
+        # if name in self.pointers and name not in self.registers:
+        #     raise Exception("Already Defined")
 
         if name in self.pointers:
             start = self.pointers[name][0]
@@ -256,6 +264,9 @@ class DataBlock:
 
         assert self.bump_pointer + self.pointers[name][1] < len(self.data)
 
+        if little:
+            assert len(new_bytes) == 1
+
         if not register or little:
             for i, v in enumerate(new_bytes):
                 self.data[start + i] = v
@@ -265,39 +276,30 @@ class DataBlock:
             for i, v in enumerate(new_bytes):
                 self.data[start + i] = v
 
-    def get(self, src, value=None):
+    def get(self, src, value=None, to_int=False, to_string=False):
         """
         Get a value from a pointer
         value   Value | Pointer
         """
+        assert not to_int & to_string or to_int ^ to_string
+        # Both or non
+
         if value is None:
             value = by_value(src)
             if value:
                 src = src[1:-1]
-
-        if src in self.registers:
-            start, length = self.pointers[src]
-            if not value:
-                return start
-
-            end = start + length
-
-            if self.data[end-1] == "\x00":
-                return self.data[start:end].decode()
-            else:
-                return int.from_bytes(self.data[start:end], byteorder='big')
-
         if src in self.pointers:
             # Return value
             start, length = self.pointers[src]
             if not value:
                 return start
             end = start + length
-            if self.data[end-1] == "\x00":
+            if to_string:
                 return self.data[start:end].decode()
-            else:
+            if to_int:
                 return int.from_bytes(self.data[start:end], byteorder='big')
-
+            else:
+                return self.data[start:end]
         try:
             return int(src)
         except ValueError:
@@ -311,7 +313,7 @@ class DataBlock:
 
     def add(self, register, value: int):
         # Takes in int value and adds to memory
-        value += data.get(register, value=True)
+        value += data.get(register, value=True, to_int=True)
         self.set(register, value)
 
     def inc_ip(self):
@@ -324,13 +326,13 @@ class DataBlock:
         """
         Dump the data segment and format it
         """
-        get_group = lambda p: "".join([f'{k} ' + f'{data.get(k, value=True)}'.ljust(5)
-                                       + f'{hex(data.get(k, value=True))}'.ljust(7)
+        get_group = lambda p: "".join([f'{k} ' + f'{data.get(k, value=True)}'.ljust(6)[:6]
+                                       + f' {hex(data.get(k, value=True, to_int=True))}'.ljust(8)[:8]
                                        for k in [f'{p}X', f'{p}H', f'{p}L']])
 
         registers = ['A', 'B', 'C', 'D', 'E']
         ret = "\n".join([json.dumps(get_group(r)) for r in registers])
-        ret += f"\nIP: {data.get('IP', value=True)}"
+        ret += f"\nIP: {data.get('IP', value=True, to_int=True)}"
         return ret
 
 
@@ -352,7 +354,7 @@ def run(inp_str, verbose=0):
                     Verbose mode 2 prints all processes
     :return:
     """
-    current_ip = data.get("IP", value=True)
+    current_ip = 0
     print(F"#### {len(inp_str)} lines. ####")
     while current_ip < len(inp_str):
         line = inp_str[current_ip].split("#")[0]
@@ -365,9 +367,8 @@ def run(inp_str, verbose=0):
             data.labels[line[:-1]] = current_ip
         else:
             parse_action(line.split(), verbose == 2)
-
         data.inc_ip()
-        current_ip = data.get("IP", value=True)
+        current_ip = data.get("IP", value=True, to_int=True)
 
 
 if __name__ == "__main__":
