@@ -1,6 +1,7 @@
 import json
 import os
 import time
+from re import escape
 import math
 
 NO_VERBOSE = 0
@@ -142,14 +143,16 @@ def parse_action(action, verbose=False):
             # This ensures that when we finish
             # Processing this line, we'll inc again,
             # Thus jumping over the next line.
+        case "INC", dst:
+            data.add(dst, 1)
 
         case "PRINT", *srcs:
             for src in srcs:
                 if data.get(src, to_int=True) == data.get(src):
-                    print(f"<{data.get('IP', value=True, to_int=True)}>: {data.get(src)}")
+                    print(f"<{data.get('IP', value=True, to_int=True)+1}>: {data.get(src)}")
                 else:
-                    print(f"<{data.get('IP', value=True, to_int=True)}>: "
-                          f"{data.get(src, to_string=True)}"
+                    print(f"<{data.get('IP', value=True, to_int=True)+1}>: "
+                          f"{escape(data.get(src, to_string=True))}"
                           f"({data.get(src, to_int=True)}) | {data.get(src)}")
 
         case "JUMP", label:
@@ -227,7 +230,7 @@ class DataBlock:
             # Get appropriate amount of bytes
             if value > 1:
                 length = math.ceil(math.log(value, 256))
-                if value % 256 == 0:
+                if not length % 1:
                     length += 1
             else:
                 length = 1
@@ -236,7 +239,6 @@ class DataBlock:
                 assert length <= 2
             if little:
                 assert length == 1
-
             new_bytes = value.to_bytes(length, "big")
 
         except (AttributeError, TypeError):
@@ -271,7 +273,6 @@ class DataBlock:
             for i, v in enumerate(new_bytes):
                 self.data[start + i] = v
         elif not little:
-            # fill to 2 bytes
             new_bytes = b'\x00' * (2 - len(new_bytes)) + new_bytes
             for i, v in enumerate(new_bytes):
                 self.data[start + i] = v
@@ -296,7 +297,10 @@ class DataBlock:
                 return start
             end = start + length
             if to_string:
-                return self.data[start:end].decode()
+                try:
+                    return self.data[start:end].decode()
+                except UnicodeDecodeError:
+                    return "Invalid STR"
             if to_int:
                 return int.from_bytes(self.data[start:end], byteorder='big')
             else:

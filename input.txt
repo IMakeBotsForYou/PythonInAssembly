@@ -1,2 +1,35 @@
-DB a A super epic string
-PRINT a [a]
+# DEFINE a as the number you want to check for prime-ness
+# and find the factors of.
+DB input 5120
+EL [input] 1
+MOV IP 33
+EH [input] 65536
+MOV IP 33
+PRINT [input]
+MOV AX [input]
+DIV 2
+DB max_check [DX]
+MOV DX [input]
+DB divider 2
+MOV CX [max_check]
+PRINT [max_check]
+loopy:
+    EL [input] [divider]  # If our divider has went further than the input, no need to check further
+    MOV IP 256  # Exit
+    EL [input] 1  # If we've reached the end
+    MOV IP 256  # Exit
+
+    MOV AX [input]  # Get ready to divide
+    DIV [divider]   # Div
+
+    EQ [EX] 0       # Divides?
+    PRINT [divider] # Print Factor
+    EQ [EX] 0       # Divides?
+    MOV input [DX]  # Move result to input
+    NE [EX] 0       # Doesn't divide?
+    INC divider     # Inc divider
+    LOOP loopy      # Loop until we've reached max_divider
+INC IP  # Skip next line
+PRINT PRIME
+INC IP  # Skip next line
+PRINT INVALID
